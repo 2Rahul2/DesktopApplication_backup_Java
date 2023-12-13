@@ -12,6 +12,7 @@ import java.util.ResourceBundle;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.stage.DirectoryChooser;
@@ -75,6 +76,8 @@ public class BackupPath implements Initializable{
 	private String folder_name_str;
 	private String folder_path_str;
 	public static UploadBackup obj;
+	private long sizeLimit=10485760;
+	private int setDurationLimit = 1;
 	public void setMainStage(Stage stage) {
 		this.mainStage = stage;
 	}
@@ -115,15 +118,50 @@ public class BackupPath implements Initializable{
 			return true;
 		}		
 	}
-	public void showAlert(String headerName , String contentText) {
-		Alert alert = new Alert(AlertType.CONFIRMATION);
+	public void showAlert(String headerName , String contentText ,int totalMinutes) {
+		Alert alert = new Alert(AlertType.INFORMATION);
 		alert.setHeaderText(headerName);
 		alert.getDialogPane().setGraphic(null);
 		Stage alertStage = (Stage) alert.getDialogPane().getScene().getWindow();
 		Image customIcon = new Image(getClass().getResourceAsStream("backup_2.png"));
 		alertStage.getIcons().add(customIcon);
 		alert.setContentText(contentText);
+		ButtonType okButton = alert.getButtonTypes().stream()
+                .filter(buttonType -> buttonType.getButtonData() == ButtonType.OK.getButtonData())
+                .findFirst()
+                .orElse(null);
+
+        // Set an event handler for the OK button
+        if (okButton != null) {
+        	Button okButtonNode = (Button) alert.getDialogPane().lookupButton(okButton);
+        	okButtonNode.setOnAction(event -> {
+            	try{
+            		
+					StorePathInJson jsonObject = new StorePathInJson(folder_name_str , folder_path_str ,totalMinutes);
+					jsonObject.storeJsonData();
+					UploadBackup uploadObject =  UploadBackup.getInstance();
+					BackUpTask newtask = new BackUpTask(folder_name_str ,folder_path_str ,totalMinutes);
+					uploadObject.addExtraTaskSchedule(newtask);
+					
+				}catch(Exception e1) {
+					e1.printStackTrace();
+				}
+                System.out.println("OK button clicked! Performing a task...");
+            });
+        }
 		alert.showAndWait();
+	}
+	public long getFolderSize(File file) {
+		long size = 0;
+		if(file.isDirectory()) {
+			for(File files:file.listFiles()) {
+				size += getFolderSize(files);
+			}
+		}else {
+			size += file.length();
+		}
+		
+		return size;
 	}
 
 	@Override
@@ -190,25 +228,39 @@ public class BackupPath implements Initializable{
 					TimeText2.setText("0");
 				}
 				if(TimeText1.getText()!="" || TimeText2.getText()!="") {
-					int hour = Integer.parseInt(TimeText1.getText());
-					int minutes = Integer.parseInt(TimeText2.getText());
-					int totalMinutes =(hour*60)+minutes; 
-					if(miniumSetTime(totalMinutes)) {
-						System.out.println("Able to Upload");
-						System.out.println(hour+"---"+minutes);						
-						showAlert(folder_name_str ," backup will be made every "+hour+" hour and "+minutes+" minutes");
-						try{
-							StorePathInJson jsonObject = new StorePathInJson(folder_name_str , folder_path_str ,totalMinutes);
-							jsonObject.storeJsonData();
-							UploadBackup uploadObject =  UploadBackup.getInstance();
-							BackUpTask newtask = new BackUpTask(folder_name_str ,folder_path_str ,totalMinutes);
-							uploadObject.addExtraTaskSchedule(newtask);
+					getHomePageFXML homePageFxml = getHomePageFXML.getInstance();
+					homepage homePage = homePageFxml.homepageController;
+					if(homePage.all_backup_in_progress && homePage.backup_in_progress) {
+						int hour = Integer.parseInt(TimeText1.getText());
+						int minutes = Integer.parseInt(TimeText2.getText());
+						int totalMinutes =(hour*60)+minutes; 
+						if(miniumSetTime(totalMinutes)) {
+							System.out.println("Able to Upload");
+							System.out.println(hour+"---"+minutes);	
+							File file = new File(folder_path_str);
+		            		if(getFolderSize(file) < sizeLimit) {
+		            			showAlert(folder_name_str ," backup will be made every "+hour+" hour and "+minutes+" minutes" ,totalMinutes);		            			
+		            		}else {
+		            			Alert alert = new Alert(AlertType.INFORMATION);
+		            			alert.setHeaderText("Size Exceeds");
+		            			alert.getDialogPane().setGraphic(null);
+		            			Stage alertStage = (Stage) alert.getDialogPane().getScene().getWindow();
+		            			Image customIcon = new Image(getClass().getResourceAsStream("attention.png"));
+		            			alertStage.getIcons().add(customIcon);
+		            			alert.setContentText("Upload File less than 10 MB");
+		            			alert.showAndWait();
+		            		}
 							
-						}catch(Exception e1) {
-							e1.printStackTrace();
-						}
-					}else {
-						System.out.println("set appropriate time");
+						}else {
+							Alert alert = new Alert(AlertType.INFORMATION);
+	            			alert.setHeaderText("Set Duration");
+	            			alert.getDialogPane().setGraphic(null);
+	            			Stage alertStage = (Stage) alert.getDialogPane().getScene().getWindow();
+	            			Image customIcon = new Image(getClass().getResourceAsStream("time.png"));
+	            			alertStage.getIcons().add(customIcon);
+	            			alert.setContentText("Duration should be Atleast "+setDurationLimit+" Mins");
+	            			alert.showAndWait();
+						}						
 					}
 				}
 				

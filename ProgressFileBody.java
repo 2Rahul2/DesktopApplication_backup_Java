@@ -98,7 +98,7 @@ public class ProgressFileBody extends FileBody{
 	            }
 	        	 out.write(b, off, len);
 	        	 bytesWritten += len;	        		
-	        		System.out.println("writting");
+//	        		System.out.println("writting");
 	        	
 //	            double percentage = ((double) bytesWritten / totalSize) * 100;	           
 	        }

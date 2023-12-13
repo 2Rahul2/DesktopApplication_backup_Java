@@ -1,29 +1,47 @@
 package org.openjfx.hellofx;
 
-import dorkbox.systemTray.SystemTray;
+//import dorkbox.systemTray.SystemTray;
 import dorkbox.systemTray.MenuItem;
 import dorkbox.systemTray.Menu;
+import javafx.scene.Group;
 
 
 import javafx.application.Platform;
+
+//import java.awt.Toolkit;
+//import java.awt.TrayIcon;
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import dorkbox.systemTray.SystemTray;
 import javafx.fxml.FXML;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Rectangle2D;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.image.Image;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
+import javafx.stage.Modality;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
@@ -36,11 +54,13 @@ import javafx.stage.WindowEvent;
  */
 public class App extends Application {
 
-    private static Scene scene;
-    public static Stage mainStage;
+    private  Scene scene;
+    public Stage menuStage = new Stage();
+    public  Stage mainStage;
     private static App instance;
     Screen screen = Screen.getPrimary();
     public static Stage allSatge;
+    public boolean deadCameBacktoalive = false , internetConnection , alternateisPaused=false;
     public Rectangle2D bounds = screen.getVisualBounds();
     public static void setInstance(App app) {
         instance = app;
@@ -49,9 +69,16 @@ public class App extends Application {
         return instance;
     }
     @Override
-    public void start(Stage primaryStage) throws IOException { 
+    public void start(Stage primaryStage) throws IOException {
+    	primaryStage.getIcons().add(new Image(getClass().getResourceAsStream("upload.png")));
     	setInstance(this);
-    	primaryStage.setTitle("Full Screen Example");
+    	checkforInternet();
+//    	checkforInternet();
+    	ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        scheduler.scheduleAtFixedRate(()->{
+        	checkforInternet();
+        }, 0, 5, TimeUnit.SECONDS);
+    	primaryStage.setTitle("Updata");
         primaryStage.setX(bounds.getMinX());
         primaryStage.setY(bounds.getMinY());
         primaryStage.setWidth(bounds.getWidth());
@@ -68,121 +95,237 @@ public class App extends Application {
         		if(!loginObject.canLogin) {
         			System.out.println("Login Menu");
         			loginObject.loadFromLogin=true;
-        			scene = new Scene(loadFXML("login"), bounds.getWidth(), bounds.getHeight());
-        			primaryStage.setScene(scene);
-        			this.mainStage = primaryStage;
-        	        this.mainStage.show();
+        			loadLoginPage(primaryStage);
 //        			showMainPage(bounds);
         		}else {
         			System.out.println("main application");
 //        			this.mainStage = primaryStage;
-        			this.mainStage = primaryStage;
-        			showMainPage(bounds ,mainStage);
-        			
+        			mainStage = primaryStage;
+//        			mainStage = showMainPage(bounds ,mainStage ,internetConnection);      
+        			AfterLoginProcess(mainStage);
         		}
-        		
-        		
         	}
         	
         }catch(Exception e) {
+        	System.out.println("Error");
         	e.printStackTrace();
         }
         
-        
-        
-//        this.allSatge = primaryStage;
-        // this.mainStage = primaryStage;
-//        Platform.setImplicitExit(false);
-//        mainStage.setOnCloseRequest(this::handleCloseRequest);
-        
-//        SystemTray systemTray = SystemTray.get();
-//        systemTray.setTooltip("System Tray Example");
-
-        // Create a menu with items
-//        getOngoingFXML ongoingObject = getOngoingFXML.getInstance();
-//		FXMLLoader loader = ongoingObject.getFXMLfile();
-//		Pane newPane = loader.load();
-//		OngoingBackupController ongoingControllerObject = loader.getController();
-//		ongoingControllerObject.addContents(1, "name", "back", "next");
-		
-		
-       
-//        FXMLLoader backupLoader = new FXMLLoader(getClass().getResource("OnGoingBackUp.fxml"));
-//        Parent rootBackup = backupLoader.load();
-//        FXMLLoader homePageLoader = new FXMLLoader(getClass().getResource("test.fxml"));
-//        Parent homeLoader = homePageLoader.load();
-//        homepage homeObject = homePageLoader.getController();
-//        homepage backpath = backupLoader.getController();
-//        System.out.println("Before assignment: backpath.allTask = " + backpath.allTask);
-//        Parent ongoingRoot = backpath.OBloader.load();
-//        OngoingBackupController onObj = backupLoader.getController();
-//        onObj.fun(Uobject.taskList);
-//        homeObject.OBloader = backupLoader;
-//        onObj.allTask = Uobject.taskList;
-//        System.out.println(onObj.allTask);
-//        System.out.println("After assignment: backpath.allTask = " + backpath.allTask);
-//        backpath.fun();
-//        Uobject.getThisToFXMLFile();
-        
-//        if(backpath!= null) {
-//        	backpath.setMainStage(mainStage);  
-//        }else {
-//        	System.out.println("back up path class is null");
-//        }
-        
-        // primaryStage.show();
+	        
+	        
     }
-    public static void showMainPage(Rectangle2D bounds ,Stage stage) {
-    	FXMLLoader fxmlLoader = new FXMLLoader(App.class.getResource("test.fxml"));
+    public void AfterLoginProcess(Stage stage) {
     	try {
-    		scene = new Scene(fxmlLoader.load(), bounds.getWidth(), bounds.getHeight());
-    		 Menu menu = new Menu();
-    	        MenuItem item1 = new MenuItem("Exit");
-    	        MenuItem item2 = new MenuItem("Open");
-    	        item1.setCallback(e->{
-    	        	System.out.println("exiting");
-    	        	System.exit(0);
-    	        });
-    	        item2.setCallback(e ->{
-    	        	Platform.runLater(()->{
-    	        	      
-    	        	        System.out.println("opening");
-    	        	        mainStage.setFullScreen(false); 
-    	        	        mainStage.toFront();
-    	        	        mainStage.show();
-    	        	        System.out.println("is opened");
-    	        	      
-    	        	    });
-    	        	    
-    	        });
-    	        menu.add(item1);
-    	        menu.add(item2);
-//    	        systemTray.setImage(App.class.getResource("backup.png"));
-//    	        systemTray.getMenu().add(menu);
-    	        UploadBackup Uobject = UploadBackup.getInstance();
-    	        Uobject.getDataFromJson();
-    	        Uobject.runListOfBackup();
-                // Stage stage = MainStageAcess();
+    		Login login = Login.getInstance();
+        	
+    		Rectangle2D bounds = screen.getVisualBounds();
+    		stage.setX(bounds.getMinX());
+    		stage.setY(bounds.getMinY());
+    		stage.setWidth(bounds.getWidth());
+    		stage.setHeight(bounds.getHeight());
+//    		scene = new Scene(mainPane, bounds.getWidth(), bounds.getHeight());
+//    		scene = new Scene(mainPane,bounds.getWidth(),bounds.getHeight()); // Initialize the scene with a size
+
+    		getHomePageFXML gethomeFXML = getHomePageFXML.getInstance();
+    		homepage homeloader = gethomeFXML.getController();
+    		BorderPane mainPane = homeloader.mainPane;
+    		mainPane.setPrefSize(bounds.getWidth(), bounds.getHeight());
+
+    		Group root = new Group(mainPane);
+
+    		// Create the Scene using the Group
+    		Scene scene = new Scene(root, bounds.getWidth(), bounds.getHeight());
+//            Group root = (Group) scene.getRoot();
+//            root.getChildren().add(mainPane);
+
     	        stage.setScene(scene);
-    	        stage.setTitle("Do_BackUp");
-                stage.show();
+    	        stage.setMaximized(true);
+    	        
+    	        stage.getIcons().add(new Image(getClass().getResourceAsStream("upload.png")));
+    	    	stage.setTitle("Updata");
+    	    	if(internetConnection) {
+    	        	jsonSettings jsonSetting = new jsonSettings();
+    	        	if(jsonSetting.getbackupatlaunch()) {
+    	        		UploadBackup Uobject = UploadBackup.getInstance();
+    	        		Uobject.getDataFromJson();
+    	        		Uobject.runListOfBackup();    	        		        		
+    	        	}
+    	        }
+    	    	System.out.println("SHOWING MY STAGEEEEEEEEEEEEEE~~~~~~~~~~~~~~");
+    	    	stage.show();
+    	    	
+    	    Platform.setImplicitExit(false);
+    	        SystemTray systemTray = SystemTray.get();
+    	    	systemTray.setImage(App.class.getResource("upload.png"));
+    	    	
+    			 Menu menu = new Menu();
+    		        MenuItem exitMenu = new MenuItem("Exit");
+    		        MenuItem openMenu = new MenuItem("Open");
+    		        MenuItem stopAllBackup = new MenuItem("Stop Backup");
+    		        if(alternateisPaused) {
+    		        	stopAllBackup.setText("Resume Backup");
+    		        }else {
+    		        	stopAllBackup.setText("Stop Backup");
+    		        }
+    		        stopAllBackup.setCallback(e->{
+    		        	alternateisPaused = !alternateisPaused;
+    		        	getHomePageFXML homeFxml = getHomePageFXML.getInstance();
+    		        	homepage homeObject = homeFxml.homepageController;
+    		        	if(alternateisPaused) {
+    		        		homeObject.StopAllBackupFunction();
+    		        		stopAllBackup.setText("Resume Backup");
+    		        	}else {
+    		        		homeObject.ResumeAllBackupFunction();
+    		        		stopAllBackup.setText("Stop Backup");
+    		        		
+    		        	}
+    		        });
+    		        exitMenu.setCallback(e->{
+    		        	System.out.println("exiting");
+    		        	Platform.exit();
+    		        	System.exit(0);
+    		        });
+    		        openMenu.setCallback(e ->{
+    		        	Platform.runLater(()->{
+    		        	        System.out.println("opening");
+    		        	        stage.show();
+    		        	        System.out.println("is opened");
+    		        	        stage.setMaximized(true); 
+    		        	        stage.toFront();    
+    		        	    });
+    		        });
+    		        menu.add(openMenu);
+    		        menu.add(exitMenu);
+    		        menu.add(stopAllBackup);
+    		        
+    		        systemTray.getMenu().add(menu);
+    		        stage.setOnCloseRequest(this::handleCloseRequest);
+    		        login.currentStage=stage;
     	}catch(Exception e) {
-    		
+    		e.printStackTrace();
+    	}
+    	
+    	
+    }
+    public void loadLoginPage(Stage Stage) {
+    	try {
+    		Login loginObject = Login.getInstance();
+    		loginObject.loadFromLogin=true;
+			Scene scene = new Scene(loadFXML("login"), bounds.getWidth(), bounds.getHeight());
+			Stage.setScene(scene);
+			Stage loginStage = new Stage();
+			loginStage = Stage;
+			loginStage.setWidth(650);
+			loginStage.setHeight(430);
+			loginStage.setAlwaysOnTop(true);
+			loginStage.setX(bounds.getMinX());
+			loginStage.setY(bounds.getMinY());
+			loginStage.show();
+			Login login = Login.getInstance();
+			login.currentStage=loginStage;
+			login.currentStage.setOnCloseRequest(e->{
+				closeAlways(e);
+			});
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    }
+    public void checkforInternet() {
+    	try {
+        	CloseableHttpClient netCheckClient = HttpClients.createDefault();
+        	HttpGet getClient = new HttpGet("https://www.google.com");
+        	HttpResponse response = netCheckClient.execute(getClient);
+        	getHomePageFXML homeFxml = getHomePageFXML.getInstance();
+        	homepage homePage = homeFxml.homepageController;
+        	if(response == null) {
+        		System.out.println("no internet !!");
+        		homePage.internet.setVisible(true);
+        		homePage.StopAllBackupFunction();
+        		deadCameBacktoalive=true;
+        		internetConnection=false;
+        	}else {
+        		System.out.println("yesss  internet !!" +deadCameBacktoalive);
+        		if(deadCameBacktoalive) {
+        			Platform.runLater(()->{
+        				homePage.internet.setVisible(false);
+        			});
+        			homePage.ResumeAllBackupFunction();
+        			deadCameBacktoalive=false;
+        		}
+        		internetConnection=true;
+
+        	}
+        }catch(Exception e) {
+        	System.out.println("no internet !!");
+        	getHomePageFXML homeFxml = getHomePageFXML.getInstance();
+        	homepage homePage = homeFxml.homepageController;
+        	Platform.runLater(()->{
+        		homePage.internet.setVisible(true);
+        		homePage.StopAllBackupFunction();            		
+        	});
+    		deadCameBacktoalive=true;
+    		internetConnection=false;
+//        	internetConnection=false;
+//        	e.printStackTrace();
+        }
+    }
+    public Stage showMainPage(Rectangle2D bounds ,Stage stage ,boolean internetConnection) {
+    	
+    	getHomePageFXML gethomeFXML = getHomePageFXML.getInstance();
+    	homepage homeloader = gethomeFXML.homepageController;
+    	BorderPane mainPane = homeloader.mainPane;
+    	
+    	
+//    	FXMLLoader fxmlLoader = new FXMLLoader(App.class.getResource("test.fxml"));
+//    	gethomeFXML.homeLoader = fxmlLoader.getController();
+    	try {
+    		scene = new Scene(mainPane, bounds.getWidth(), bounds.getHeight());	  
+    	        stage.setScene(scene);
+    	        stage.setMaximized(true);
+//    	        stage.setTitle("Do_BackUp");
+//                stage.show();
+    	        return stage;
+    	}catch(Exception e) {
+    		return stage;
     	}
     }
-    private void handleCloseRequest(WindowEvent event) {
-        // Hide the stage instead of exiting the application
-//        mainStage.hide();
-        System.exit(0);
-//        event.consume();
+    private void closeAlways(WindowEvent event) {
+    	Platform.setImplicitExit(true);
+		Platform.exit();
+		System.exit(0);
+		event.consume();
     }
-    public static Stage MainStageAcess() {
-    	return mainStage;
+    private void handleCloseRequest(WindowEvent event) {
+    	jsonSettings jsonSetting = new jsonSettings();
+    	if(!jsonSetting.getruninbackgroundvalue()) {
+    		Platform.setImplicitExit(true);
+    		Platform.exit();
+    		System.exit(0);
+    	}else {
+    		Login getStage = Login.getInstance();
+    		
+    		getStage.currentStage.hide();    		
+    	}
+    	event.consume();
+        // Hide the stage instead of exiting the application
+//        System.exit(0);
+    }
+    public void MainStageDisable() {
+//    	return mainStage;
+    	Login login = Login.getInstance();
+    	Node sceneRoot = login.currentStage.getScene().getRoot();
+    	sceneRoot.setDisable(true);
+    }
+    public void MainStageEnable() {
+    	Login login = Login.getInstance();
+    	Node sceneRoot = login.currentStage.getScene().getRoot();
+    	sceneRoot.setDisable(false);
     }
 
-    static void setRoot(String fxml) throws IOException {
-        scene.setRoot(loadFXML(fxml));
-    }
+//    static void setRoot(String fxml) throws IOException {
+//        scene.setRoot(loadFXML(fxml));
+//    }
 
     private static Parent loadFXML(String fxml) throws IOException {
         FXMLLoader fxmlLoader = new FXMLLoader(App.class.getResource(fxml + ".fxml"));

@@ -1,13 +1,22 @@
 package org.openjfx.hellofx;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
+import org.apache.http.ParseException;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.AbortableHttpRequest;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
+import org.json.JSONObject;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.entity.mime.content.StringBody;
@@ -18,6 +27,7 @@ import java.io.FileNotFoundException;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.nio.file.Paths;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -30,6 +40,7 @@ import org.apache.http.entity.mime.content.ContentBody;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.layout.HBox;
@@ -54,6 +65,12 @@ public class SendFilesToServer {
 	long currentTotalSize;
 	long currentBytesWritten;
 	private int currentStage;
+	public ScheduledExecutorService scheduler;
+	String token;
+	CloseableHttpClient httpClient = HttpClients.createDefault();
+	getServerUrl rootUrl = new getServerUrl();
+	HttpPost httpPost = new HttpPost(rootUrl.getRootUrl()+"sendData/");
+
 	
 //	int totalCompressPercentage;
 	private int HboxIndex;
@@ -87,7 +104,7 @@ public class SendFilesToServer {
 					long totalS =compressObject.totalSize;
 					if(totalS!=0) {
 						float totalCompressPercentage = ((float) byW / totalS) * 100;
-						System.out.println("Extraction progress : "+totalCompressPercentage);
+//						System.out.println("Extraction progress : "+totalCompressPercentage);
 						Platform.runLater(()->{
 							HBox thisHbox = ongoingBackupObject.hashmap.get(HboxIndex);
 							VBox secondVbox = (VBox) thisHbox.getChildren().get(1);
@@ -99,7 +116,7 @@ public class SendFilesToServer {
 							PBar.setProgress((float) totalCompressPercentage/100);
 						});
 						if (totalCompressPercentage>=100) {
-							System.out.println("Extraction progress : "+totalCompressPercentage);
+//							System.out.println("Extraction progress : "+totalCompressPercentage);
 							zipSchedule.shutdown();
 							
 						}
@@ -155,12 +172,77 @@ public class SendFilesToServer {
 			}
 			//SendFiles
 		}else {
+			Platform.runLater(()->{
+				HBox thisHbox = ongoingBackupObject.hashmap.get(HboxIndex);
+				VBox secondVbox = (VBox) thisHbox.getChildren().get(1);
+				
+				Label stageStatus = (Label) secondVbox.getChildren().get(0);
+				Label progressName = (Label) secondVbox.getChildren().get(1);
+				stageStatus.setText("Stage 1 of 2");
+				progressName.setText("Failed to connect to the server!");					
+			});
 			System.out.println("Server not Found");
 		}		
 	}
+	
+	public void cancelRequest() {
+		
+		if (httpClient instanceof CloseableHttpClient) {
+            try {
+                ((CloseableHttpClient) httpClient).close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+	}
 	public static void main(String[] args) {
+		
+		
+		
+		
 //		SendFilesToServer hb =new SendFilesToServer("" ,"" ,1);
 //		hb.StartProcdeure();
+	}
+	public String getToken(HttpClient tempClient) {
+//		HttpClient tempClient = HttpClients.createDefault();
+		getServerUrl rootUrl = new getServerUrl();
+		HttpPost tempPost = new HttpPost(rootUrl.getRootUrl()+"loginsite/");
+		
+		tempPost.setHeader("Content-Type" ,"application/json");
+		JSONObject json = new JSONObject();
+		
+		jsonCredentials credObject = new jsonCredentials();
+		String username = credObject.getUserName();
+		String userpassword = credObject.getUserPassword();
+		json.put("username", username);
+		json.put("password", userpassword);
+		
+		StringEntity tempEntity;
+		try {
+			tempEntity = new StringEntity(json.toString());
+			tempPost.setEntity(tempEntity);
+			try {
+				HttpResponse httpResponse = tempClient.execute(tempPost);
+				HttpEntity entity = httpResponse.getEntity();
+				String responseString = EntityUtils.toString(entity);
+				JSONObject jObject = new JSONObject(responseString);
+				
+				token = jObject.getString("token");
+//				String user = jObject.getString("user");
+				
+				System.out.println("Token : "+token);
+				return token;
+				
+			} catch (ParseException e) {
+				e.printStackTrace();
+			} catch (IOException e) {				
+				e.printStackTrace();
+			}
+		} catch (UnsupportedEncodingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return "";
 	}
 	void startSending(String ZipFilePath ,String FileName) {
 		if(FileExists(ZipFilePath)) {
@@ -206,7 +288,7 @@ public class SendFilesToServer {
 //				ProgressFileEntity fileBody = new ProgressFileEntity(ZipFile_ToSent, ContentType.DEFAULT_BINARY);
 				
 				
-				ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+				scheduler = Executors.newSingleThreadScheduledExecutor();
 				Platform.runLater(()->{
 					HBox thisHbox = ongoingBackupObject.hashmap.get(HboxIndex);
 					VBox secondVbox = (VBox) thisHbox.getChildren().get(1);
@@ -245,30 +327,64 @@ public class SendFilesToServer {
 				    }
 
 				}, 0, 4, TimeUnit.MILLISECONDS);
-				HttpClient httpClient =  HttpClients.createDefault();
-				HttpPost httpPost = new HttpPost("http://127.0.0.1:8000/sendData/");
+//				httpClient =  HttpClients.createDefault();
+//				HttpClient getClient = HttpClients.createDefault();
+				getServerUrl rootUrl = new getServerUrl();
+				httpPost = new HttpPost(rootUrl.getRootUrl()+"sendData/");
+//				HttpGet httpGet = new HttpGet("http://127.0.0.1:8000/getCorrectToken/");
+				try {
+//					HttpResponse Getresponse = getClient.execute(httpGet);
+//					String csrfToken = EntityUtils.toString(Getresponse.getEntity());
+					token = getToken(httpClient);
+					System.out.println("Token : "+token);
+					if(token !="") {
+						System.out.println("token : "+token);
+						httpPost.setHeader("Authorization", "token "+ token);
+//						httpPost.setHeader("X-CSRFToken" ,"0176904d1e358321a063c2048989245d58f548a5");
+					}else {
+						System.out.println("no token");
+					}
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} 
 				
 				
-				MultipartEntityBuilder builder = MultipartEntityBuilder.create();
-				builder.addPart("file", progressfileBody);
+				
 //				builder.addBinaryBody("file", ZipFile_ToSent, ContentType.DEFAULT_BINARY, ZipFile_ToSent.getName(), progressEntity::writeTo);
 //			builder.addPart("file",  new ProgressFileBody(progressEntity));
 //	        builder.addBinaryBody("file", ZipFile_ToSent, ContentType.DEFAULT_BINARY, ZipFile_ToSent.getName());
+				MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+				jsonCredentials credObject = new jsonCredentials();
+				String username = credObject.getUserName();
+				builder.addPart("file", progressfileBody);
+				builder.addPart("username" ,new StringBody(username ,ContentType.TEXT_PLAIN));
 				builder.addPart("name" ,new StringBody(FileName ,ContentType.TEXT_PLAIN));
+				builder.addTextBody("Bearer ", token);
 				httpPost.setEntity(builder.build());
 				try {
 //					progressfileBody.resetProgress();
 					HttpResponse response = httpClient.execute(httpPost);
 					HttpEntity entity = response.getEntity();
-					if (entity != null) {
+					String responseString = EntityUtils.toString(entity).trim();
+					ObjectMapper resultMapper = new ObjectMapper();
+					JsonNode resultNode = resultMapper.readTree(responseString);
+					
+					System.out.println(resultNode.get("saved").asText() +" == okay");
+					if (resultNode.get("saved").asText().equals("okay")) {
+
+						System.out.println(resultNode.get("saved").asText() +" == okay");
 						Platform.runLater(()->{
 							HBox thisHbox = ongoingBackupObject.hashmap.get(HboxIndex);
 							VBox secondVbox = (VBox) thisHbox.getChildren().get(1);
 							Label stageStatus = (Label) secondVbox.getChildren().get(0);
 							Label progressName = (Label) secondVbox.getChildren().get(1);
 							stageStatus.setText("Stage 2 of 2");
-							progressName.setText("Uploaded..");					
+							progressName.setText("Uploaded..");
 							ProgressBar PBar = (ProgressBar) secondVbox.getChildren().get(2);
+							VBox threeVbox = (VBox) thisHbox.getChildren().get(2);
+							HBox threeVboxHbox =(HBox) threeVbox.getChildren().get(0);
+							threeVbox.getChildren().remove(threeVboxHbox);
 							secondVbox.getChildren().remove(PBar);
 						});
 //						thisHbox = ongoingBackupObject.hashmap.get(HboxIndex);
@@ -278,10 +394,45 @@ public class SendFilesToServer {
 //				    	stageStatus.setText("Stage 2 of 2");
 //				    	progressName.setText("Uploaded..");
 						System.out.println("File Uploaded");
+					}else {
+						System.out.println(resultNode.get("saved").asText() +" == not okay");
+						Platform.runLater(()->{
+							HBox thisHbox = ongoingBackupObject.hashmap.get(HboxIndex);
+							VBox secondVbox = (VBox) thisHbox.getChildren().get(1);
+							Label stageStatus = (Label) secondVbox.getChildren().get(0);
+							Label progressName = (Label) secondVbox.getChildren().get(1);
+							stageStatus.setText("Stage 2 of 2");
+							progressName.setText("Failed to Upload..");
+							ProgressBar PBar = (ProgressBar) secondVbox.getChildren().get(2);
+							
+							VBox threeVbox = (VBox) thisHbox.getChildren().get(2);
+							HBox threeVboxHbox =(HBox) threeVbox.getChildren().get(0);
+							threeVbox.getChildren().remove(threeVboxHbox);
+							secondVbox.getChildren().remove(PBar);
+						});
 					}
 					scheduler.shutdown();
 				} catch (IOException e) {
-					e.printStackTrace();
+					try {
+						Platform.runLater(()->{
+							HBox thisHbox = ongoingBackupObject.hashmap.get(HboxIndex);
+							VBox secondVbox = (VBox) thisHbox.getChildren().get(1);
+							
+							Label stageStatus = (Label) secondVbox.getChildren().get(0);
+							Label progressName = (Label) secondVbox.getChildren().get(1);
+							stageStatus.setText("Stage 2 of 2");
+							progressName.setText("Failed to Upload..");
+							ProgressBar PBar = (ProgressBar) secondVbox.getChildren().get(2);
+							VBox threeVbox = (VBox) thisHbox.getChildren().get(2);
+							HBox threeVboxHbox =(HBox) threeVbox.getChildren().get(0);
+							threeVbox.getChildren().remove(threeVboxHbox);
+							secondVbox.getChildren().remove(PBar);
+						});
+					
+					}catch(Exception e1) {
+						
+					}
+					
 				}finally {
 					scheduler.shutdownNow();
 //					scheduler.shutdown();
@@ -333,10 +484,28 @@ public class SendFilesToServer {
 //					e.printStackTrace();
 //				}
 			}else {
+				Platform.runLater(()->{
+					HBox thisHbox = ongoingBackupObject.hashmap.get(HboxIndex);
+					VBox secondVbox = (VBox) thisHbox.getChildren().get(1);
+					
+					Label stageStatus = (Label) secondVbox.getChildren().get(0);
+					Label progressName = (Label) secondVbox.getChildren().get(1);
+					stageStatus.setText("Stage 2 of 2");
+					progressName.setText("Failed to connect to the server!");					
+				});
 				System.out.println("Server not Found");
 			}
 				
 		}else {
+			Platform.runLater(()->{
+				HBox thisHbox = ongoingBackupObject.hashmap.get(HboxIndex);
+				VBox secondVbox = (VBox) thisHbox.getChildren().get(1);
+				
+				Label stageStatus = (Label) secondVbox.getChildren().get(0);
+				Label progressName = (Label) secondVbox.getChildren().get(1);
+				stageStatus.setText("Stage 1 of 2");
+				progressName.setText("File Couldnt Found!");					
+			});
 			System.out.println("File not Found");
 		}
 	}
@@ -353,7 +522,8 @@ public class SendFilesToServer {
 		return false;
 	}
 	boolean getConnectionStatus() {
-		String serverUrl = "http://127.0.0.1:8000/sendData/";
+		getServerUrl rootUrl = new getServerUrl();
+		String serverUrl = rootUrl.getRootUrl()+"checkconnection/";
 		try {
 			HttpClient httpClient = HttpClients.createDefault();
 			HttpGet request = new HttpGet(serverUrl);

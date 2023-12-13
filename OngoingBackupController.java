@@ -56,6 +56,7 @@ public class OngoingBackupController implements Initializable {
 	public void addContents(int HboxIndex ,String Name , String LastBackup ,String NextBackup) {
 		final int newIndex = indexCount;
 		final int hboxIndex = HboxIndex;
+		boolean[] isPause = {false};
 		HBox hbox = new HBox();
 		hbox.setPrefHeight(90);
 		hbox.setPrefWidth(810);
@@ -65,8 +66,11 @@ public class OngoingBackupController implements Initializable {
 //		HboxContents.add(hbox);
 		VBox vboxOne = new VBox();
 		Label folderName = new Label();
+		folderName.setStyle("-fx-text-fill: white;");
 		Label backupTaken = new Label();
+		backupTaken.setStyle("-fx-text-fill: white;");
 		Label nextBackup = new Label();
+		nextBackup.setStyle("-fx-text-fill: white;");
 		folderName.setId("labelText");
 		backupTaken.setId("labelText");
 		nextBackup.setId("labelText");
@@ -81,15 +85,16 @@ public class OngoingBackupController implements Initializable {
 		vboxOne.getChildren().addAll(folderName ,backupTaken ,nextBackup);
 		
 		VBox vboxTwo = new VBox();
+		vboxTwo.setStyle("-fx-background-color: #907c9c;");
 		vboxTwo.setPrefHeight(70);
 		vboxTwo.setPrefWidth(650);
 		vboxTwo.setId("progressStage");	
 		vboxTwo.setAlignment(Pos.CENTER_LEFT);
 		
 		Label stageProgress = new Label();
+		stageProgress.setStyle("-fx-text-fill: white;");
 		Label progressName = new Label();
-		stageProgress.setId("labelText");
-		progressName.setId("labelText");
+		progressName.setStyle("-fx-text-fill: white;");
 		ProgressBar progressBar = new ProgressBar();
 		stageProgress.setPrefHeight(18);
 		stageProgress.setPrefWidth(205);
@@ -109,6 +114,7 @@ public class OngoingBackupController implements Initializable {
 		VBox vboxThree = new VBox();
 		vboxThree.setPrefWidth(610);
 		vboxThree.setPrefHeight(70);
+		
 		vboxThree.setStyle("-fx-padding: 0 0 0 15;");
 		vboxThree.setAlignment(Pos.CENTER_LEFT);
 		
@@ -123,6 +129,7 @@ public class OngoingBackupController implements Initializable {
 		pauseButton.setPrefHeight(35);
 		pauseButton.setPrefWidth(35);
 		pauseButton.setGraphic(pauseView);
+		pauseButton.setStyle("-fx-cursor: hand;");
 		pauseButton.setStyle("-fx-font-size: 1px;");
 		pauseButton.setStyle("-fx-background-color:none;");
 		DropShadow pausePlayShadow = new DropShadow();
@@ -132,26 +139,48 @@ public class OngoingBackupController implements Initializable {
 		cancelButton.setId("cancelButton");
 		DropShadow buttonShadow = new DropShadow();
 		buttonShadow.setColor(Color.web("#7a678a"));
+		cancelButton.setStyle("-fx-cursor: hand;");
 		cancelButton.setEffect(buttonShadow);
 		cancelButton.setPrefWidth(130);
 		cancelButton.setPrefHeight(30);
 		cancelButton.setText("Cancel Upload");
 		innerHbox.getChildren().addAll(cancelButton ,pauseButton);
 		vboxThree.getChildren().add(innerHbox);
+		hbox.setStyle("-fx-background-color: #464a5c;");
 		hbox.getChildren().addAll(vboxOne , vboxTwo ,vboxThree);
 //		HboxContents.add(hbox);
 		hashmap.put(hboxIndex ,hbox);
 		pauseButton.setOnAction(e->{
-			System.out.println("Pause the backup clicked");
-			UploadBackup uploadObject = UploadBackup.getInstance();
+			System.out.print("now Play");
+			if(isPause[0]) {
+				System.out.println("Pause the backup clicked");
+				UploadBackup uploadObject = UploadBackup.getInstance();
+				uploadObject.pauseBackUpObject(hboxIndex);
+				Image playImage = new Image(getClass().getResourceAsStream("play.png"));
+				ImageView playView = new ImageView(playImage);
+				playView.setFitHeight(35);
+				playView.setFitWidth(35);
+				pauseButton.setGraphic(playView);
+				isPause[0]=false;
+			}else {
+				Image playImage = new Image(getClass().getResourceAsStream("pause-button.png"));
+				ImageView playView = new ImageView(playImage);
+				UploadBackup uploadObject = UploadBackup.getInstance();
+				uploadObject.pauseBackUpObject(hboxIndex);
+				playView.setFitHeight(35);
+				playView.setFitWidth(35);
+				pauseButton.setGraphic(playView);
+				isPause[0]=true;
+			}
 //			uploadObject.runningBackupList.remove(hboxIndex);
-			uploadObject.pauseBackUpObject(hboxIndex);
 		});
 		cancelButton.setOnAction(e->{
 			System.out.println("Index:  "+newIndex);
 //			HBox removeHbox = HboxContents.get(newIndex);
 //			HboxContents.remove(newIndex);
 			UploadBackup uploadObject = UploadBackup.getInstance();
+			uploadObject.runningBackupList.get(hboxIndex).sendFileObject.cancelRequest();
+			uploadObject.runningBackupList.get(hboxIndex).sendFileObject.scheduler.shutdown();
 			uploadObject.runningBackupList.remove(hboxIndex);
 			hashmap.remove(hboxIndex);
 			MainScreen.getChildren().remove(hbox);

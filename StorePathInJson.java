@@ -121,7 +121,7 @@ public class StorePathInJson {
 		}
 	}
 	
-	public static List<createJsonBluePrint> getJsonList(String jsonPath){
+	public  List<createJsonBluePrint> getJsonList(String jsonPath){
 //		object mapper use to serialize and deserialize 
 //		converts class object to json string and vice versa
 		ObjectMapper objectMapper = new ObjectMapper();

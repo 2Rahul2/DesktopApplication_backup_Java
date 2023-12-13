@@ -9,9 +9,11 @@ import java.util.ResourceBundle;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.geometry.Insets;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
@@ -35,6 +37,8 @@ public class windowFile implements Initializable  {
 	private ImageView forwardimage;
 	@FXML
 	private ImageView backimage;
+	@FXML
+	Label foldername;
 	
 	
 	public LinkedList<FileExplorer> previousFolder = new LinkedList<>();
@@ -132,13 +136,30 @@ public class windowFile implements Initializable  {
 			HBox rootHbox = new HBox();
 			rootHbox.setPrefHeight(35);
 			rootHbox.setPrefWidth(540);
-			
+			rootHbox.setStyle("-fx-background-color: none;");
 			Label Sno = new Label();
+			Sno.setStyle("-fx-text-fill: white;");
 			Sno.setPrefHeight(130);
 			Sno.setPrefWidth(30);
 			Sno.setText(sno);
-			
 			Label name = new Label();
+			name.setStyle("-fx-text-fill: white;");
+			if(isFolder.equals("file")){
+				Image image = new Image(getClass().getResourceAsStream("file.png"));
+				ImageView imageView = new ImageView(image);
+				Insets margin = new Insets(0, 0, 0, 20); // Insets(top, right, bottom, left)
+//			    name.setMargin(imageView ,margin);
+				imageView.setFitHeight(20);
+				imageView.setFitWidth(20);
+				name.setGraphic(imageView);
+			}else {
+				Image image = new Image(getClass().getResourceAsStream("folder.png"));
+				ImageView imageView = new ImageView(image);
+				imageView.setFitHeight(20);
+				imageView.setFitWidth(20);
+				name.setGraphic(imageView);
+			}
+			name.setGraphicTextGap(8);
 			name.setPrefHeight(130);
 			name.setPrefWidth(195);
 			name.setText(folderName);
@@ -146,12 +167,25 @@ public class windowFile implements Initializable  {
 			Label Size = new Label();
 			Size.setPrefHeight(130);
 			Size.setPrefWidth(167);
-			Size.setText(size);
-			
+			Size.setText(size+" bytes");
+			Size.setStyle("-fx-text-fill: white;");
+			Image Dimage = new Image(getClass().getResourceAsStream("inbox.png"));
+			ImageView DimageView = new ImageView(Dimage);
+			DimageView.setFitHeight(20);
+			DimageView.setFitWidth(20);
 			Button downloadBtn = new Button();
+			
+			downloadBtn.setStyle("-fx-cursor: hand;");
+			downloadBtn.setOnMouseEntered(e->{
+				downloadBtn.setStyle("-fx-background-color: #d9d1f0;-fx-text-fill: black;");
+			});
+			downloadBtn.setOnMouseExited(e->{
+				downloadBtn.setStyle("-fx-background-color: none;-fx-text-fill: white;");
+			});
+			downloadBtn.setStyle("-fx-text-fill: white;");
 			downloadBtn.setPrefHeight(95);
 			downloadBtn.setPrefWidth(154);
-			downloadBtn.setText("download");
+			downloadBtn.setText("Download");
 			downloadBtn.setOnAction(e->{
 				FileDownloader filedownload = new FileDownloader(fileType ,branchType ,fileId , Fname);
 				filedownload.StartDownload();
@@ -159,6 +193,7 @@ public class windowFile implements Initializable  {
 //				System.out.println("downlad Button:  "+foldername+"Id:  "+id);
 				e.consume();
 			});
+			downloadBtn.setGraphic(DimageView);
 			
 			rootHbox.getChildren().addAll(Sno ,name ,Size ,downloadBtn);
 			setGraphic(rootHbox);
@@ -166,30 +201,49 @@ public class windowFile implements Initializable  {
 		}
 	}
 	public void createFolderPannel(FileExplorer FE) {
+		foldername.setText(FE.FileName);
 		mainFolderPage.getChildren().clear();
 		CurrentFile = FE;
 		int count = 0;
 		for(int i = 0;i<FE.fileexplorer.size();i++) {
 			final int indexPosition = i;
 			count++;
-			customFolderButton folderBtn = new customFolderButton(String.valueOf(count) ,FE.fileexplorer.get(i).FileName ,"2525" ,FE.fileexplorer.get(i).FileId ,"folder", "subBranch");
-			folderBtn.setStyle("-fx-background-color:  #968fa8;");
-//			folderBtn.setStyle("-fx-border-width: 2px 2px 2px 0px");
+			customFolderButton folderBtn = new customFolderButton(String.valueOf(count) ,FE.fileexplorer.get(i).FileName ,FE.fileexplorer.get(i).FileSize ,FE.fileexplorer.get(i).FileId ,"folder", "subBranch");
+			folderBtn.setStyle("-fx-background-color: #6d6385;");
 			folderBtn.setMaxWidth(Double.MAX_VALUE);
 			folderBtn.setPrefHeight(Region.USE_COMPUTED_SIZE);
-			folderBtn.setOnAction(e->{
-				listIndex++;
-				previousFolder.add(CurrentFile);
-				createFolderPannel(FE.fileexplorer.get(indexPosition));
+			folderBtn.setOnMouseClicked(event -> {
+                // Handle button click
+            	if (event.getClickCount() == 2) {
+            		listIndex++;
+    				previousFolder.add(CurrentFile);
+    				createFolderPannel(FE.fileexplorer.get(indexPosition));
+//            		System.out.println("Button clicked for: " + getItem());
+            	}
+            });
+//			folderBtn.setOnAction(e->{
+//				listIndex++;
+//				previousFolder.add(CurrentFile);
+//				createFolderPannel(FE.fileexplorer.get(indexPosition));
+//			});
+			Insets margin = new Insets(5, 0, 0, 0); // Insets(top, right, bottom, left)
+		    mainFolderPage.setMargin(folderBtn,margin);
+		    folderBtn.setOnMouseEntered(e->{
+		    	folderBtn.setStyle("-fx-background-color: #645a7d;");
+			});
+		    folderBtn.setOnMouseExited(e->{
+		    	folderBtn.setStyle("-fx-background-color:  #6d6385;");
 			});
 			mainFolderPage.getChildren().add(folderBtn);			
 		}
 		for(int j =0;j<FE.subFile.size();j++) {
 			count++;
-			customFolderButton fileBtn = new customFolderButton(String.valueOf(count) ,FE.subFile.get(j).FileName ,"2323",FE.subFile.get(j).FileId ,"file" ,"file");
-			fileBtn.setStyle("-fx-background-color:  #968fa8;");
+			customFolderButton fileBtn = new customFolderButton(String.valueOf(count) ,FE.subFile.get(j).FileName ,FE.subFile.get(j).FileSize,FE.subFile.get(j).FileId ,"file" ,"file");
+			fileBtn.setStyle("-fx-background-color: #6d6385;");
 			fileBtn.setMaxWidth(Double.MAX_VALUE);
 			fileBtn.setPrefHeight(Region.USE_COMPUTED_SIZE);
+			Insets margin = new Insets(5, 0, 0, 0); // Insets(top, right, bottom, left)
+		    mainFolderPage.setMargin(fileBtn,margin);
 			mainFolderPage.getChildren().add(fileBtn);
 		}
 		
@@ -203,9 +257,8 @@ public class windowFile implements Initializable  {
 //			System.out.println(listOfExplorer.get(1).FileName);
 //			System.out.println(listOfExplorer);
 			TreeItem<String> rootItem = new TreeItem<>(FE.FileName);
-			
 			TreeView<String> treeView = new TreeView<>(rootItem);
-			
+			treeView.setStyle("-fx-background-color: #5b5370;");
 			treeView.setCellFactory(new Callback<TreeView<String>, TreeCell<String>>() {
 				@Override
 				public TreeCell<String> call(TreeView<String> param) {
@@ -214,6 +267,8 @@ public class windowFile implements Initializable  {
 			});
 			
 			traverseFolder(FE ,rootItem);
+			treeView.setMaxHeight(Double.MAX_VALUE);
+			
 			leftMenuTree.getChildren().add(treeView);
 //			for(int i=0;i< listOfExplorer.size()-1 ;i++) {
 				
@@ -232,6 +287,7 @@ public class windowFile implements Initializable  {
 			for(int j=0;j<FE.fileexplorer.size();j++) {
 				String name = FE.fileexplorer.get(j).FileName;
 				TreeItem<String> TVItem = new TreeItem<>(name);
+				
 //				TreeView<String> TV = new TreeView<>(TVItem);
 				RI.getChildren().add(TVItem);
 				traverseFolder(FE.fileexplorer.get(j) ,TVItem);
@@ -243,7 +299,7 @@ public class windowFile implements Initializable  {
 				TreeItem<String> TVItem = new TreeItem<>(name);
 //				TreeView<String> TV = new TreeView<>(TVItem);
 				RI.getChildren().add(TVItem);
-				System.out.println(FE.subFile.get(j).FileName);
+//				System.out.println(FE.subFile.get(j).FileName);
 			}
 		}
 	}

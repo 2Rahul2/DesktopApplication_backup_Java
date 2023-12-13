@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -21,7 +22,9 @@ import javafx.scene.layout.VBox;
 public class UploadBackup {
 	public String Name;
 	public HashMap<ScheduledFuture<?> , BackUpTask> taskMap = new HashMap<>();
-	public ScheduledExecutorService schedule =  Executors.newScheduledThreadPool(1);
+//	public ScheduledExecutorService schedule =  Executors.newScheduledThreadPool(1);
+	ScheduledExecutorService schedule = Executors.newSingleThreadScheduledExecutor();
+
 	public List<ScheduledFuture<?>> scheduledTask = new ArrayList<>();
 	public List<BackUpTask> taskList = new ArrayList<>();
 	public List<BackUpTask> ScheduledBackupTaskList = new ArrayList<>();
@@ -34,7 +37,23 @@ public class UploadBackup {
         return instance;
     }
 	public static void main(String[] args) {	
-
+		
+	}
+	public void PauseAllBackup() {
+		for(int i = 0;i<scheduledTask.size();i++) {
+			cancelTask(i);
+//			make sure the internet is detected
+		}
+	}
+	public void PauseFutureBackup() {
+		for(ScheduledFuture<?> previousSchedule: scheduledTask) {
+			previousSchedule.cancel(true);
+		}
+		System.out.println("Paused");
+	}
+	public void ResumeBackup() {
+		scheduledTask.clear();
+		runListOfBackup();
 	}
 //	public void getThisToFXMLFile() {
 //		FXMLLoader backupLoader = new FXMLLoader(getClass().getResource("OnGoingBackUp.fxml"));
@@ -58,24 +77,37 @@ public class UploadBackup {
 	}
 //	Method to run at start of application;
 	public void runListOfBackup() {
-		for(BackUpTask task: taskList) {
-			try {
-				ScheduledFuture<?> scheduleFuture = schedule.scheduleAtFixedRate(task::runBackUp, 0, task.getInterval() , TimeUnit.MINUTES);
-				scheduledTask.add(scheduleFuture);
-				taskMap.put(scheduleFuture, task);
+//		for(BackUpTask task: taskList) {
+//			try {
+//				ScheduledFuture<?> scheduleFuture = schedule.scheduleAtFixedRate(task::runBackUp, 0, task.getInterval() , TimeUnit.MINUTES);
+//				scheduledTask.add(scheduleFuture);
+////				scheduleFuture.
+//				taskMap.put(scheduleFuture, task);
+//				ScheduledBackupTaskList.add(task);
+//			}catch(Exception e) {
+//				e.printStackTrace();
+//			}
+//		}
+		if(taskList.size()!=0) {
+			ExecutorService executorService = Executors.newFixedThreadPool(taskList.size());
+			
+			for (BackUpTask task : taskList) {
+				ScheduledFuture<?> future = schedule.scheduleAtFixedRate(() -> executorService.submit(task::runBackUp),
+						0, task.getInterval(), TimeUnit.MINUTES);
+				scheduledTask.add(future);
+				taskMap.put(future, task);
 				ScheduledBackupTaskList.add(task);
-			}catch(Exception e) {
-				e.printStackTrace();
-			}
+			}			
+		}else {
+			System.out.println("size is not empty");
 		}
-//		System.out.println("SCHEDULED TASKS:  "+scheduledTask.get(0));
 	}
 	public void pauseBackUpObject(int backupObjectIndex) {
 		BackUpTask pauseBackup = runningBackupList.get(backupObjectIndex);
 		if(pauseBackup.sendFileObject.progressfileBody.progressOutputStream.pause) {
-			pauseBackup.sendFileObject.progressfileBody.progressOutputStream.resume();			
-		}else {
 			pauseBackup.sendFileObject.progressfileBody.progressOutputStream.pause();
+		}else {
+			pauseBackup.sendFileObject.progressfileBody.progressOutputStream.resume();			
 		}
 		System.out.println("correct object ??:   "+pauseBackup.sendFileObject.progressfileBody.progressOutputStream.pause);
 		System.out.println("Pause the backup clicked hehehehehe");
@@ -93,6 +125,7 @@ public class UploadBackup {
 					finalIndex = i;
 				}
 			}
+			getAllSimilarBackup.sendFileObject.cancelRequest();
 			getOngoingFXML fxmlObject = getOngoingFXML.getInstance();
 			try {
 				HBox firstHbox = (HBox) fxmlObject.ongoingObject.hashmap.get(finalIndex);
@@ -111,6 +144,8 @@ public class UploadBackup {
 		StorePathInJson jsonDataObject = new StorePathInJson();
 		ScheduledFuture<?> newScheduledFuture = schedule.scheduleAtFixedRate(task::runBackUp, 0, task.getInterval() , TimeUnit.MINUTES);
 		scheduledTask.add(newScheduledFuture);
+		taskMap.put(newScheduledFuture ,task);
+		taskList.add(task);
 		getEditbackupFXML getEditObject = getEditbackupFXML.getinstance();
 		EditBackupController controllerObject = getEditObject.editbackupObject;
 		controllerObject.addContents(jsonDataObject.getJsonList(jsonDataObject.jsonPath), task.totalMinutes , task.Name ,ScheduledBackupTaskList.size());
